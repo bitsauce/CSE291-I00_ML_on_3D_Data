@@ -1,7 +1,10 @@
+import h5py
+import os
+
 """
 Helper functions to implement PointNet
 """
-MODELNET40_PATH = "Enter the path in which MODELNET40 is stored"
+MODELNET40_PATH = "./modelnet40/"
 
 def load_h5(h5_filename):
     """
