@@ -24,7 +24,6 @@ class Dataset:
 
         self.num_examples = len(points)
         self._index_in_epoch = 0
-        self._epochs_completed = 0
         self._points = np.array(points)
         self._labels = np.zeros((self.num_examples, num_categories))
         self._labels[np.arange(self.num_examples), np.array(labels)] = 1
@@ -36,33 +35,23 @@ class Dataset:
         
     def _shuffle_data(self):
         idx = np.arange(0, self.num_examples)
-        if self._shuffle: np.random.shuffle(idx)
+        np.random.shuffle(idx)
         self._points = self._points[idx]
         self._labels = self._labels[idx]
 
     def next_batch(self, batch_size):
         start = self._index_in_epoch
-
-        # go to the next batch
-        if start + batch_size > self.num_examples:
-            self._epochs_completed += 1
-            rest_num_examples = self.num_examples - start
-            rest_points = self._points[start:self.num_examples]
-            rest_labels = self._labels[start:self.num_examples]
+        end = start + batch_size
+        if end >= self.num_examples:
+            end = self.num_examples
+            self._index_in_epoch = 0
+            self._epoch_complete = True
             
             if self._shuffle:
                 self._shuffle_data()
-            self._epoch_complete = True
-
-            start = 0
-            self._index_in_epoch = batch_size - rest_num_examples
-            end =  self._index_in_epoch
-            return np.concatenate((rest_points, self._points[start:end]), axis=0), \
-                   np.concatenate((rest_labels, self._labels[start:end]), axis=0)
         else:
-            self._index_in_epoch += batch_size
-            end = self._index_in_epoch
-            return self._points[start:end], self._labels[start:end]
+            self._index_in_epoch = end
+        return self._points[start:end], self._labels[start:end]
     
     def is_epoch_complete(self):
         if self._epoch_complete:
@@ -103,3 +92,22 @@ def rotate(points, theta):
 ###############################################################
 def jitter(points, mean, std):
     return points + np.random.normal(mean, std, points.shape)
+
+###############################################################
+# save/load objects with pickle
+###############################################################
+import pickle
+def save_object(obj, filename):
+    with open(filename, "wb") as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_object(filename):
+    with open(filename, "rb") as f:
+        return pickle.load(f)
+    return None
+
+###############################################################
+# linear interpolation
+###############################################################
+def lerp(a, b, f):
+    return a + f * (b - a)
