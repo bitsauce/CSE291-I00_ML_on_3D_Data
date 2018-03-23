@@ -61,6 +61,7 @@ def registerPointCloudFile(pcl_file):
     pcl_name = get_file_name(pcl_file).lower()
     if pcl_name.startswith("ctrl"):
         pcl_name = "control" + pcl_name[4:]
+    if pcl_name in pcl_files: raise Exception("Multiple files with the same name %s" % pcl_name)
     pcl_files[pcl_name] = pcl_file
 
 # Find and store all pcl files
@@ -120,24 +121,31 @@ def generate_labeled_meshes(mesh_file):
     
     if args.generate_obj_files:
         # Generate one mesh for each label
-        vertices = [[] for _ in range(NUM_LABELS)]
-        faces    = [[] for _ in range(NUM_LABELS)]
-        for i in range(len(mesh.faces)):
-            label = per_face_label[i]
-            offset = len(vertices[label])
-            vertices[label].extend(mesh.vertices[mesh.faces[i]])
-            faces[label].append([offset, offset+1, offset+2])
+        for label in [STEM, LEAF]:
+            vertices = []
+            faces    = []
+            vertex_map = {}
+            for i in range(len(mesh.faces)):
+                if per_face_label[i] == label:
+                    face = []
+                    for vertex in mesh.vertices[mesh.faces[i]]:
+                        vertex_key = tuple(vertex)
+                        if vertex_key in vertex_map:
+                            face.append(vertex_map[vertex_key])
+                        else:
+                            vertices.append(vertex)
+                            index = len(vertices) - 1
+                            vertex_map[vertex_key] = index
+                            face.append(index)
+                    faces.append(face)
 
-        # Save meshes
-        output_dir = args.output_dir + mesh_file[mesh_file.find(os.sep):mesh_file.rfind(os.sep)]
-        if not os.path.isdir(output_dir): os.makedirs(output_dir)
-        
-        pymesh.save_mesh_raw(os.path.join(output_dir, file_name + "_s.obj"), np.array(vertices[0]), np.array(faces[0]), ascii=True)
-        print("Object file created ", os.path.join(output_dir, file_name + "_l.obj"), sep="")
-              
-        pymesh.save_mesh_raw(os.path.join(output_dir, file_name + "_l.obj"), np.array(vertices[1]), np.array(faces[1]), ascii=True)
-        print("Object file created ", os.path.join(output_dir, file_name + "_s.obj"), sep="")
-        
+            # Save meshes
+            output_dir = args.output_dir + mesh_file[mesh_file.find(os.sep):mesh_file.rfind(os.sep)]
+            if not os.path.isdir(output_dir): os.makedirs(output_dir)
+            
+            pymesh.save_mesh_raw(os.path.join(output_dir, file_name + "_%s.obj" % ("s" if label == STEM else "l")), np.array(vertices), np.array(faces), ascii=True)
+            print("Object file created ", os.path.join(output_dir, file_name + "_%s.obj" % ("s" if label == STEM else "l")), sep="")
+            
     if args.generate_label_files:
         # Save per-face labels to file
         output_dir = args.output_dir + mesh_file[mesh_file.find(os.sep):mesh_file.rfind(os.sep)]
